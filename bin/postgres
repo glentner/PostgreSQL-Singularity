@@ -36,7 +36,7 @@ function pg_initdb() {
 		return 1
 	fi
 	OPT="$1"; shift
-	case "${OPT}" in 
+	case "${OPT}" in
 		-h | --help)
 			pg_initdb_help
 			return 1
@@ -80,8 +80,8 @@ function pg_initdb_help() {
 # Print full help statement for 'postgres initdb'
 	pg_initdb_usage
 	cat <<-EOF 2>/dev/null
-	
-	options: 
+
+	options:
 	-h, --help         Show this message and exit.
 	EOF
 }
@@ -94,7 +94,7 @@ function pg_tune() {
 		return 1
 	fi
 	OPT="$1"; shift
-	case "${OPT}" in 
+	case "${OPT}" in
 		-h | --help)
 			pg_tune_help
 			return 1
@@ -121,8 +121,8 @@ function pg_tune_help() {
 # Print full help statement for 'postgres tune'
 	pg_tune_usage
 	cat <<-EOF 2>/dev/null
-	
-	options: 
+
+	options:
 	-h, --help         Show this message and exit.
 	EOF
 }
@@ -135,7 +135,7 @@ function pg_run() {
 		return 1
 	fi
 	OPT="$1"; shift
-	case "${OPT}" in 
+	case "${OPT}" in
 		-h | --help)
 			pg_run_help
 			return 1
@@ -143,7 +143,7 @@ function pg_run() {
 		*)
 			;;
 	esac
-	run_container_with_bind "$OPT" postgres -c config_file=/etc/postgresql/12/main/postgresql.conf "$@" 
+	run_container_with_bind "$OPT" postgres -c config_file=/etc/postgresql/12/main/postgresql.conf "$@"
 }
 
 
@@ -162,8 +162,8 @@ function pg_run_help() {
 # Print full help statement for 'postgres run'
 	pg_run_usage
 	cat <<-EOF 2>/dev/null
-	
-	options: 
+
+	options:
 	-h, --help         Show this message and exit.
 	EOF
 }
@@ -184,7 +184,7 @@ function pg_usage() {
 
 
 function pg_help() {
-	show_usage
+	pg_usage
 	cat <<-EOF 2>/dev/null
 
 	commands:
@@ -207,7 +207,7 @@ function main() {
 	cmd=$1
 	shift
 	case $cmd in
-		(initdb|tune|run|start)
+		(initdb|tune|run)
 			pg_$cmd "$@"
 			;;
 		(-h|--help)
