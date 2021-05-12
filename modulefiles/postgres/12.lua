@@ -1,0 +1,5 @@
+whatis("Name: postgres")
+whatis("Version: 12")
+whatis("Keywords: Database, Singularity, Container")
+whatis("Description: Run PostgreSQL in standalone mode against isolated directory.")
+prepend_path("PATH", "/apps/containers/postgres/12/bin")
