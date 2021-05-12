@@ -1,0 +1,228 @@
+#!/bin/bash
+#
+# Postgres container script
+#
+# PostgresSQL is installed inside an Ubuntu 20.04 Singularity container image within minimal customization.
+# The default /etc configuration for Postgres and SSL are copied out as a skeleton for the starting point.
+# A few different workflows are provided for.
+
+
+BIN_DIR=$(dirname $0)
+PREFIX=$(dirname $BIN_DIR)
+IMG=$BIN_DIR/postgres.simg
+
+
+function run_container() {
+	singularity exec $IMG "$@"
+}
+
+
+function run_container_with_bind() {
+	DB=$1; shift
+	singularity exec \
+	-B $DB/var/run:/var/run/postgresql \
+	-B $DB/var/lib:/var/lib/postgresql/12/main \
+	-B $DB/var/log:/var/log/postgresql/12/main \
+	-B $DB/etc/postgresql:/etc/postgresql/12/main \
+	-B $DB/etc/ssl:/etc/ssl \
+	$IMG "$@"
+}
+
+
+function pg_initdb() {
+	if [ $# -eq 0 ]
+	then
+		pg_initdb_usage
+		return 1
+	fi
+	OPT="$1"; shift
+	case "${OPT}" in 
+		-h | --help)
+			pg_initdb_help
+			return 1
+			;;
+		*)
+			;;
+	esac
+	if [ -d "${OPT}" ]
+	then
+		echo "Error: cannot initialize existing data directory (${OPT})"
+		return 1
+	else
+		mkdir -p ${OPT}/etc/ssl/certs
+		mkdir -p ${OPT}/etc/ssl/private
+		mkdir -p ${OPT}/var/lib
+		mkdir -p ${OPT}/var/log
+		mkdir -p ${OPT}/var/run/12-main.pg_stat_tmp
+
+		run_container cp /etc/ssl/private/ssl-cert-snakeoil.key ${OPT}/etc/ssl/private/ssl-cert-snakeoil.key
+		run_container cp /etc/ssl/certs/ssl-cert-snakeoil.pem ${OPT}/etc/ssl/certs/ssl-cert-snakeoil.pem
+		run_container scp -r /etc/postgresql/12/main ${OPT}/etc/postgresql
+		run_container_with_bind "${OPT}" initdb -D /var/lib/postgresql/12/main
+
+		chmod -R go-rwx ${OPT}/etc
+	fi
+}
+
+
+function pg_initdb_usage() {
+# usage: pg_initdb_usage
+# Print usage statement for 'postgres initdb'
+	cat <<-EOF 2>/dev/null
+	usage: postgres initdb <DATA_DIR>
+	Initialize database directory.
+	EOF
+}
+
+
+function pg_initdb_help() {
+# usage: pg_initdb_help
+# Print full help statement for 'postgres initdb'
+	pg_initdb_usage
+	cat <<-EOF 2>/dev/null
+	
+	options: 
+	-h, --help         Show this message and exit.
+	EOF
+}
+
+
+function pg_tune() {
+	if [ $# -eq 0 ]
+	then
+		pg_tune_usage
+		return 1
+	fi
+	OPT="$1"; shift
+	case "${OPT}" in 
+		-h | --help)
+			pg_tune_help
+			return 1
+			;;
+		*)
+			;;
+	esac
+	run_container_with_bind "$OPT" timescaledb-tune --conf-path=$OPT/etc/postgresql/postgresql.conf "$@"
+}
+
+
+function pg_tune_usage() {
+# usage: pg_tune_usage
+# Print usage statement for 'postgres tune'
+	cat <<-EOF 2>/dev/null
+	usage: postgres tune <DATA_DIR> [OPTS...]
+	Tune database configuration.
+	EOF
+}
+
+
+function pg_tune_help() {
+# usage: pg_tune_help
+# Print full help statement for 'postgres tune'
+	pg_tune_usage
+	cat <<-EOF 2>/dev/null
+	
+	options: 
+	-h, --help         Show this message and exit.
+	EOF
+}
+
+
+function pg_run() {
+	if [ $# -eq 0 ]
+	then
+		pg_run_usage
+		return 1
+	fi
+	OPT="$1"; shift
+	case "${OPT}" in 
+		-h | --help)
+			pg_run_help
+			return 1
+			;;
+		*)
+			;;
+	esac
+	run_container_with_bind "$OPT" postgres -c config_file=/etc/postgresql/12/main/postgresql.conf "$@" 
+}
+
+
+function pg_run_usage() {
+# usage: pg_run_usage
+# Print usage statement for 'postgres run'
+	cat <<-EOF 2>/dev/null
+	usage: postgres run <DATA_DIR> [OPTS...]
+	Run PostgreSQL server.
+	EOF
+}
+
+
+function pg_run_help() {
+# usage: pg_run_help
+# Print full help statement for 'postgres run'
+	pg_run_usage
+	cat <<-EOF 2>/dev/null
+	
+	options: 
+	-h, --help         Show this message and exit.
+	EOF
+}
+
+
+function pg_version() {
+	singularity --version
+	run_container postgres --version
+}
+
+
+function pg_usage() {
+	cat <<-EOF 2>/dev/null
+	usage: postgres [-h] <command> <DATA_DIR> [OPTS...]
+	Run PostgreSQL as a container.
+	EOF
+}
+
+
+function pg_help() {
+	show_usage
+	cat <<-EOF 2>/dev/null
+
+	commands:
+	initdb             Initialize database directory.
+	tune               Tune configuration.
+	run                Run PostgreSQL server.
+
+	options:
+	-h, --help         Show this message and exit.
+	EOF
+}
+
+
+function main() {
+	if [ $# -eq 0 ]
+	then
+		pg_usage
+		return 1
+	fi
+	cmd=$1
+	shift
+	case $cmd in
+		(initdb|tune|run|start)
+			pg_$cmd "$@"
+			;;
+		(-h|--help)
+			pg_help
+			;;
+		(-v|--version)
+			pg_version
+			;;
+		*)
+			echo "Error: $cmd is not a subcommand"
+			;;
+	esac
+	return 0
+}
+
+
+main "$@"
+exit $?
