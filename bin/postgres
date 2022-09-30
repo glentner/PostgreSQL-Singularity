@@ -13,17 +13,16 @@ IMG=$BIN_DIR/postgres.simg
 
 
 function run_container() {
-	singularity exec $IMG "$@"
+	apptainer exec $IMG "$@"
 }
 
 
 function run_container_with_bind() {
 	DB=$1; shift
-	singularity exec \
+	apptainer exec \
 	-B $DB/var/run:/var/run/postgresql \
-	-B $DB/var/lib:/var/lib/postgresql/12/main \
-	-B $DB/var/log:/var/log/postgresql/12/main \
-	-B $DB/etc/postgresql:/etc/postgresql/12/main \
+	-B $DB/var/lib:/var/lib/postgresql/cur/main \
+	-B $DB/etc/postgresql:/etc/postgresql/cur/main \
 	-B $DB/etc/ssl:/etc/ssl \
 	$IMG "$@"
 }
@@ -54,11 +53,13 @@ function pg_initdb() {
 		mkdir -p ${OPT}/var/lib
 		mkdir -p ${OPT}/var/log
 		mkdir -p ${OPT}/var/run/12-main.pg_stat_tmp
+		mkdir -p ${OPT}/var/run/14-main.pg_stat_tmp
+		chmod o-rwx ${OPT}/var/lib
 
 		run_container cp /etc/ssl/private/ssl-cert-snakeoil.key ${OPT}/etc/ssl/private/ssl-cert-snakeoil.key
 		run_container cp /etc/ssl/certs/ssl-cert-snakeoil.pem ${OPT}/etc/ssl/certs/ssl-cert-snakeoil.pem
-		run_container scp -r /etc/postgresql/12/main ${OPT}/etc/postgresql
-		run_container_with_bind "${OPT}" initdb -D /var/lib/postgresql/12/main
+		run_container scp -r /etc/postgresql/cur/main ${OPT}/etc/postgresql
+		run_container_with_bind "${OPT}" /usr/lib/postgresql/cur/bin/initdb -D /var/lib/postgresql/cur/main
 
 		chmod -R go-rwx ${OPT}/etc
 	fi
@@ -87,47 +88,6 @@ function pg_initdb_help() {
 }
 
 
-function pg_tune() {
-	if [ $# -eq 0 ]
-	then
-		pg_tune_usage
-		return 1
-	fi
-	OPT="$1"; shift
-	case "${OPT}" in
-		-h | --help)
-			pg_tune_help
-			return 1
-			;;
-		*)
-			;;
-	esac
-	run_container_with_bind "$OPT" timescaledb-tune --conf-path=$OPT/etc/postgresql/postgresql.conf "$@"
-}
-
-
-function pg_tune_usage() {
-# usage: pg_tune_usage
-# Print usage statement for 'postgres tune'
-	cat <<-EOF 2>/dev/null
-	usage: postgres tune <DATA_DIR> [OPTS...]
-	Tune database configuration.
-	EOF
-}
-
-
-function pg_tune_help() {
-# usage: pg_tune_help
-# Print full help statement for 'postgres tune'
-	pg_tune_usage
-	cat <<-EOF 2>/dev/null
-
-	options:
-	-h, --help         Show this message and exit.
-	EOF
-}
-
-
 function pg_run() {
 	if [ $# -eq 0 ]
 	then
@@ -143,7 +103,7 @@ function pg_run() {
 		*)
 			;;
 	esac
-	run_container_with_bind "$OPT" postgres -c config_file=/etc/postgresql/12/main/postgresql.conf "$@"
+	run_container_with_bind "$OPT" /usr/lib/postgresql/cur/bin/postgres -c config_file=/etc/postgresql/cur/main/postgresql.conf "$@"
 }
 
 
@@ -169,8 +129,51 @@ function pg_run_help() {
 }
 
 
+function pg_admin() {
+	if [ $# -eq 0 ]
+	then
+		pg_admin_usage
+		return 1
+	fi
+	OPT="$1"; shift
+	case "${OPT}" in
+		-h | --help)
+			pg_admin_help
+			return 1
+			;;
+		*)
+			;;
+	esac
+	port=$(grep ^port ${OPT}/etc/postgresql/postgresql.conf | awk '{print $3;}')
+	echo "using command line: psql postgres -p ${port} $@"
+	run_container_with_bind "$OPT" /usr/lib/postgresql/cur/bin/psql postgres -p ${port} "$@"
+}
+
+
+function pg_admin_usage() {
+# usage: pg_admin_usage
+# Print usage statement for 'postgres admin'
+	cat <<-EOF 2>/dev/null
+	usage: postgres admin <DATA_DIR> [OPTS...]
+	Run PostgreSQL server.
+	EOF
+}
+
+
+function pg_admin_help() {
+# usage: pg_admin_help
+# Print full help statement for 'postgres admin'
+	pg_admin_usage
+	cat <<-EOF 2>/dev/null
+
+	options:
+	-h, --help         Show this message and exit.
+	EOF
+}
+
+
 function pg_version() {
-	singularity --version
+	apptainer --version
 	run_container postgres --version
 }
 
@@ -189,8 +192,8 @@ function pg_help() {
 
 	commands:
 	initdb             Initialize database directory.
-	tune               Tune configuration.
 	run                Run PostgreSQL server.
+	admin              Run as DB administrator.
 
 	options:
 	-h, --help         Show this message and exit.
@@ -201,13 +204,13 @@ function pg_help() {
 function main() {
 	if [ $# -eq 0 ]
 	then
-		pg_usage
+		pg_help
 		return 1
 	fi
 	cmd=$1
 	shift
 	case $cmd in
-		(initdb|tune|run)
+		(initdb|run|admin)
 			pg_$cmd "$@"
 			;;
 		(-h|--help)

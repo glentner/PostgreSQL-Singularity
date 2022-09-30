@@ -1,2 +1,2 @@
 # PostgreSQL-Singularity
-Run PostgreSQL server within a Singularity container against isolated directory.
+Run PostgreSQL server within an Apptainer container against isolated directory.

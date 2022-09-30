@@ -1,5 +1,5 @@
 
 image: bin/postgres.simg
-bin/postgres.simg: Singularity
-	sudo singularity build $(@).partial $(<)
+bin/postgres.simg: Apptainer
+	apptainer build $(@).partial $(<)
 	mv $(@).partial $(@)
