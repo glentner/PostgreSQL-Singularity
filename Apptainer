@@ -7,8 +7,8 @@ From: ubuntu:jammy
 %environment
 
 %post
-    export TSDB=2
-    export PSQL=14
+	export TSDB=2
+	export PSQL=14
 
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update
@@ -18,9 +18,9 @@ From: ubuntu:jammy
 	apt install -y timescaledb-${TSDB}-postgresql-${PSQL}
 	timescaledb-tune --quiet --yes
 
-    ln -s /etc/postgresql/${PSQL} /etc/postgresql/cur
-    ln -s /usr/lib/postgresql/${PSQL} /usr/lib/postgresql/cur
-    ln -s /var/lib/postgresql/${PSQL} /var/lib/postgresql/cur
+	ln -s /etc/postgresql/${PSQL} /etc/postgresql/cur
+	ln -s /usr/lib/postgresql/${PSQL} /usr/lib/postgresql/cur
+	ln -s /var/lib/postgresql/${PSQL} /var/lib/postgresql/cur
 	mkdir -p /scratch /depot /apps
 	chmod -R +rx,o-rwx /etc/ssl/private
 	chmod -R +r,o-rwx  /etc/postgresql
